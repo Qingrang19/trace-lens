@@ -49,7 +49,7 @@ python -m unittest discover -s tests -v
 trace_lens/core.py       CSV 校验、诊断、稳定缩放统计、基线校正
 trace_lens/report.py     转义、安全文件名、独立 SVG 和 HTML/JSON 输出
 trace_lens/__main__.py   argparse 命令行与退出码
-assets/logo.svg         原创透镜/波形品牌图形
+assets/logo.svg         透镜/波形标识
 examples/               固定样例及可直接打开的报告
  tests/test_trace_lens.py  标准库 unittest 与子进程 CLI 测试
 ```
@@ -61,16 +61,3 @@ examples/               固定样例及可直接打开的报告
 这是轻量原型，不替代专业信号处理平台。仅支持 CSV；没有 FFT、滤波、重采样、交互缩放、数据编辑或统计推断。使用二进制双精度浮点；统计通过缩放降低中间值溢出风险，但不提供任意精度保证。每个点均绘制、全部数据和诊断保存在内存，建议用于小到中型文件（数万行以内），不是流式大数据工具。不同量纲分图展示，轴仅标示范围而不是完整刻度。
 
 创建输出目录后若磁盘写入失败，可能留下部分文件；错误会返回 2，请检查并删除不完整目录后重试。报告会显示输入路径及列名，如需分享请检查是否包含私人信息。绘图生成结构经过自动测试；未声称做过跨浏览器视觉验收。
-
-## 来源与独立实现
-
-Trace Lens 围绕通用 CSV/时间序列分析需求独立编写。没有复制其他项目的实现、界面、资源或文档。品牌、布局、示例数据、代码和说明均为本项目新建；不存在运行时外部资源。
-
-## 开发验证
-
-```sh
-python -m unittest discover -s tests -v
-python -m compileall -q trace_lens tests
-```
-
-测试覆盖数值统计、空/常量/极端数据、缺失/非法/非有限值、横坐标排除、基线边界与溢出、CSV 结构、选择校验、无序横坐标、转义、断线与单点图、JSON、禁止覆盖以及命令行端到端。Python 代码仅使用标准库。

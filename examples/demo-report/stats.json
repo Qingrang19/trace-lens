@@ -1,0 +1,41 @@
+{
+  "source": "examples/signals.csv",
+  "x_column": "time_s",
+  "baseline_interval": null,
+  "std_definition": "population (ddof=0)",
+  "total_rows": 101,
+  "columns": {
+    "sensor_a": {
+      "count": 100,
+      "min": 1.000077,
+      "max": 2.999574,
+      "mean": 2.18261119,
+      "std": 0.6671855594702375,
+      "rms": 2.2823076430400064,
+      "baseline_offset": 0.0,
+      "excluded": 1
+    },
+    "sensor_b": {
+      "count": 100,
+      "min": -0.390958,
+      "max": 2.273185,
+      "mean": 0.93368197,
+      "std": 0.8082353717552512,
+      "rms": 1.2349115098902552,
+      "baseline_offset": 0.0,
+      "excluded": 1
+    }
+  },
+  "diagnostics": [
+    {
+      "line": 35,
+      "column": "sensor_a",
+      "reason": "missing"
+    },
+    {
+      "line": 67,
+      "column": "sensor_b",
+      "reason": "invalid"
+    }
+  ]
+}

@@ -1,63 +1,65 @@
-# Trace Lens · 迹线透镜
+<p><img src="assets/logo.svg" alt="trace lens" width="420"></p>
 
-![Trace Lens logo](assets/logo.svg)
+# Trace Lens
 
-面向研究 CSV 的离线数值检查工具。把一组时间序列整理为可追溯的统计、独立 SVG 图，以及无需服务器、网络、JavaScript 或第三方库即可打开的 HTML 报告。
+把 CSV 时间序列整理成曲线、逐列统计和 HTML 报告。支持基线扣除，缺失或无效样本会在曲线上留出断点，便于回查原始数据。
 
-## 快速开始
+## 看一个例子
 
-需要 **Python 3.10+**。在本仓库根目录直接运行，无需 pip 安装：
+仓库样例有 101 行、两路信号。`sensor_a` 在 3.3 秒缺值，`sensor_b` 在 6.5 秒包含无效文本；两列各有 100 个有效样本。
+
+![根据真实 CSV 和 CLI 统计报告绘制的双通道曲线，标出缺失点和统计量](assets/demo.svg)
+
+图中曲线来自 `examples/signals.csv`，统计与行号来自实际运行生成的 [JSON 报告](assets/demo-stats.json)。复现命令：
 
 ```sh
-python -m trace_lens --help
-python -m trace_lens sample examples/my-sample.csv
-python -m trace_lens report examples/my-sample.csv --x time_s --out output
+python -m trace_lens report examples/signals.csv --x time_s --out output
 ```
 
-在浏览器中打开 `output/report.html`。同目录还有 `stats.json`、`trace-001.svg`、`trace-002.svg`。HTML 已内嵌全部图，不依赖 SVG 文件位置。
+需要 Python 3.10+，在项目根目录运行，无第三方依赖。浏览器打开 `output/report.html` 即可查看完整报告，也可先打开仓库内的 [示例报告](examples/demo-report/report.html)。
 
-仓库提供固定样例 `examples/signals.csv` 和完整报告 `examples/demo-report/report.html`，可直接查看。输出目录必须不存在；样例命令也只创建新文件，避免覆盖研究结果。重复运行时更换 `--out` 或样例路径。
+每次生成：
 
-## 常见用法
+- `report.html`：内嵌全部曲线的独立报告。
+- `stats.json`：逐列统计、基线参数、数据诊断。
+- `trace-001.svg`、`trace-002.svg`：可单独使用的曲线图。
 
-选择特定测量列，并减去时间区间内的均值：
+输出目录必须是新目录；再次运行时换一个 `--out` 路径。
+
+## 选择列与扣除基线
 
 ```sh
-python -m trace_lens report examples/signals.csv --x time_s --columns sensor_a sensor_b --baseline 0 1 --out corrected
-python -m trace_lens report examples/signals.csv --x time_s --columns sensor_a --out sensor-a-report
+python -m trace_lens report examples/signals.csv --x time_s \
+  --columns sensor_a sensor_b --baseline 0 1 --out corrected
+```
+
+`--baseline START END` 取闭区间内各列有效样本的均值，再从整列减去该值。报告保存每列扣除的均值；原文件保持不变。区间内没有有效样本会报错。
+
+要生成新的演示数据：
+
+```sh
+python -m trace_lens sample sample.csv
+python -m trace_lens report sample.csv --x time_s --columns sensor_a --out single-channel
+```
+
+## 数据约定
+
+- 输入为带表头的 UTF-8 CSV（兼容 BOM）；列名唯一，行宽一致。
+- `--x` 是数值横坐标，如秒数。未指定 `--columns` 时，其余列全部按数值信号处理。
+- 空值记为 `missing`，非数值记为 `invalid`，NaN/Inf 记为 `nonfinite`。诊断包含 CSV 行号和列名。
+- x 无效时排除整行；单个信号无效时只排除该信号。曲线在这些位置断开。
+- 保留输入顺序，x 递减时给出警告；允许重复 x。
+- 输出 count、excluded、min、max、mean、std、rms。std 使用总体标准差；启用基线时统计校正后的数据。
+- 没有有效样本的列，count 为 0，数值统计为 JSON `null`。
+
+退出码 `0` 表示成功，`2` 表示参数、输入或写入错误。缺值等诊断写到 stderr 和 JSON；仍有有效数据时可以正常生成报告。
+
+## 开发
+
+```sh
 python -m unittest discover -s tests -v
 ```
 
-`--baseline START END` 使用闭区间 [START, END]；每个信号分别计算有效样本的均值，随后从该列所有有效值中减去该均值。区间没有有效样本、非有限区间或相减溢出会报错，不会静默生成错误结果。JSON 保存基线区间和各列减去的值。原文件不改动。
+`core.py` 处理 CSV、统计和基线；`report.py` 生成 SVG/HTML；`__main__.py` 提供 CLI。
 
-## CSV 与统计约定
-
-- UTF-8（可有 BOM）、逗号分隔、标准 CSV 引号，第一行是唯一且非空的列名。
-- `--x` 是数值时间/横坐标。日期字符串须先转换为秒等数值；不猜测日期、单位或时区。
-- 不指定 `--columns` 时，除 x 外所有列均作为数值信号；文本列会产生 invalid 诊断。
-- 空白单元格为 missing，非数值为 invalid，NaN/Inf/溢出数字为 nonfinite。stderr 和 JSON 同时记录行号、列名、原因，不记录单元格原文。
-- x 无效时整行排除统计与绘图；单个信号无效时仅排除该信号。图线在无效样本处断开，不插值。
-- 行号为 CSV 记录结束的物理行号，带多行引号字段时可能跨行。
-- 提供 count、excluded、min、max、mean、std、rms；std 是总体标准差（ddof=0），RMS 是相对于零的均方根。基线启用后统计使用校正后的值。
-- 没有可用点的列输出 count=0、数值统计为 JSON null；不输出 NaN。
-- 重复列名、不齐整的行、空文件、未知列名会报错。空行也是不齐整的行。
-- x 的原始顺序保留。递减时给出 unsorted_x 警告；不会擅自排序。相同 x 允许存在。
-
-## 结构
-
-```text
-trace_lens/core.py       CSV 校验、诊断、稳定缩放统计、基线校正
-trace_lens/report.py     转义、安全文件名、独立 SVG 和 HTML/JSON 输出
-trace_lens/__main__.py   argparse 命令行与退出码
-assets/logo.svg         透镜/波形标识
-examples/               固定样例及可直接打开的报告
- tests/test_trace_lens.py  标准库 unittest 与子进程 CLI 测试
-```
-
-每个 SVG 使用序号命名，列名不会作为路径。所有插入 HTML/SVG 的标签与文件名都经过 HTML 转义。报告仅作本地文件输出，不上传数据。退出码 0 表示成功，2 表示参数、输入或输出失败；有效数据存在时，missing 等诊断为警告，不改变退出码。
-
-## 限制与边界
-
-这是轻量原型，不替代专业信号处理平台。仅支持 CSV；没有 FFT、滤波、重采样、交互缩放、数据编辑或统计推断。使用二进制双精度浮点；统计通过缩放降低中间值溢出风险，但不提供任意精度保证。每个点均绘制、全部数据和诊断保存在内存，建议用于小到中型文件（数万行以内），不是流式大数据工具。不同量纲分图展示，轴仅标示范围而不是完整刻度。
-
-创建输出目录后若磁盘写入失败，可能留下部分文件；错误会返回 2，请检查并删除不完整目录后重试。报告会显示输入路径及列名，如需分享请检查是否包含私人信息。绘图生成结构经过自动测试；未声称做过跨浏览器视觉验收。
+数据和诊断在内存中处理，每个有效点都参与绘图，适合数万行以内的文件。计算采用双精度浮点；日期解析、滤波或重采样可在导入前完成。
